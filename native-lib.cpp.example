@@ -1,0 +1,192 @@
+/**
+ * Example native-lib.cpp for Android OpenCV integration
+ * This demonstrates basic OpenCV operations using only core and imgproc modules
+ * 
+ * Available modules:
+ * - opencv_core: Mat, basic data structures, math operations
+ * - opencv_imgproc: cvtColor, resize, warpAffine, filters, morphology, etc.
+ */
+
+#include <jni.h>
+#include <string>
+#include <android/log.h>
+#include <opencv2/opencv.hpp>
+
+#define TAG "OpenCV_Native"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+
+extern "C" {
+
+/**
+ * Get OpenCV version string
+ */
+JNIEXPORT jstring JNICALL
+Java_com_example_myapp_MainActivity_getOpenCVVersion(
+        JNIEnv *env,
+        jobject /* this */) {
+    std::string version = cv::getVersionString();
+    LOGD("OpenCV Version: %s", version.c_str());
+    return env->NewStringUTF(version.c_str());
+}
+
+/**
+ * Convert image to grayscale
+ * @param srcAddr - Address of source Mat (RGBA)
+ * @param dstAddr - Address of destination Mat (Grayscale)
+ */
+JNIEXPORT void JNICALL
+Java_com_example_myapp_MainActivity_convertToGray(
+        JNIEnv *env,
+        jobject /* this */,
+        jlong srcAddr,
+        jlong dstAddr) {
+    try {
+        cv::Mat &src = *(cv::Mat *) srcAddr;
+        cv::Mat &dst = *(cv::Mat *) dstAddr;
+        
+        if (src.empty()) {
+            LOGE("Source image is empty!");
+            return;
+        }
+        
+        // Convert RGBA to Grayscale
+        cv::cvtColor(src, dst, cv::COLOR_RGBA2GRAY);
+        LOGD("Converted to grayscale: %dx%d", dst.cols, dst.rows);
+        
+    } catch (cv::Exception &e) {
+        LOGE("OpenCV Error: %s", e.what());
+    }
+}
+
+/**
+ * Apply Gaussian blur to image
+ * @param srcAddr - Address of source Mat
+ * @param dstAddr - Address of destination Mat
+ * @param kernelSize - Kernel size (must be odd)
+ */
+JNIEXPORT void JNICALL
+Java_com_example_myapp_MainActivity_applyGaussianBlur(
+        JNIEnv *env,
+        jobject /* this */,
+        jlong srcAddr,
+        jlong dstAddr,
+        jint kernelSize) {
+    try {
+        cv::Mat &src = *(cv::Mat *) srcAddr;
+        cv::Mat &dst = *(cv::Mat *) dstAddr;
+        
+        if (src.empty()) {
+            LOGE("Source image is empty!");
+            return;
+        }
+        
+        // Ensure kernel size is odd
+        if (kernelSize % 2 == 0) {
+            kernelSize++;
+        }
+        
+        cv::GaussianBlur(src, dst, cv::Size(kernelSize, kernelSize), 0);
+        LOGD("Applied Gaussian blur with kernel size: %d", kernelSize);
+        
+    } catch (cv::Exception &e) {
+        LOGE("OpenCV Error: %s", e.what());
+    }
+}
+
+/**
+ * Apply image rotation and affine transformation
+ * @param srcAddr - Address of source Mat
+ * @param dstAddr - Address of destination Mat
+ * @param angle - Rotation angle in degrees
+ * @param scale - Scaling factor
+ */
+JNIEXPORT void JNICALL
+Java_com_example_myapp_MainActivity_rotateImage(
+        JNIEnv *env,
+        jobject /* this */,
+        jlong srcAddr,
+        jlong dstAddr,
+        jdouble angle,
+        jdouble scale) {
+    try {
+        cv::Mat &src = *(cv::Mat *) srcAddr;
+        cv::Mat &dst = *(cv::Mat *) dstAddr;
+        
+        if (src.empty()) {
+            LOGE("Source image is empty!");
+            return;
+        }
+        
+        // Get rotation matrix
+        cv::Point2f center(src.cols / 2.0f, src.rows / 2.0f);
+        cv::Mat rotMat = cv::getRotationMatrix2D(center, angle, scale);
+        
+        // Apply affine transformation
+        cv::warpAffine(src, dst, rotMat, src.size());
+        LOGD("Rotated image by %.1f degrees with scale %.2f", angle, scale);
+        
+    } catch (cv::Exception &e) {
+        LOGE("OpenCV Error: %s", e.what());
+    }
+}
+
+/**
+ * Resize image
+ * @param srcAddr - Address of source Mat
+ * @param dstAddr - Address of destination Mat
+ * @param width - Target width
+ * @param height - Target height
+ */
+JNIEXPORT void JNICALL
+Java_com_example_myapp_MainActivity_resizeImage(
+        JNIEnv *env,
+        jobject /* this */,
+        jlong srcAddr,
+        jlong dstAddr,
+        jint width,
+        jint height) {
+    try {
+        cv::Mat &src = *(cv::Mat *) srcAddr;
+        cv::Mat &dst = *(cv::Mat *) dstAddr;
+        
+        if (src.empty()) {
+            LOGE("Source image is empty!");
+            return;
+        }
+        
+        cv::resize(src, dst, cv::Size(width, height), 0, 0, cv::INTER_LINEAR);
+        LOGD("Resized image to: %dx%d", width, height);
+        
+    } catch (cv::Exception &e) {
+        LOGE("OpenCV Error: %s", e.what());
+    }
+}
+
+/**
+ * Simple test function
+ */
+JNIEXPORT jstring JNICALL
+Java_com_example_myapp_MainActivity_testOpenCV(
+        JNIEnv *env,
+        jobject /* this */) {
+    try {
+        // Create a simple test matrix
+        cv::Mat testMat = cv::Mat::zeros(100, 100, CV_8UC1);
+        cv::circle(testMat, cv::Point(50, 50), 30, cv::Scalar(255), -1);
+        
+        // Count non-zero pixels
+        int count = cv::countNonZero(testMat);
+        
+        std::string result = "OpenCV is working! Non-zero pixels: " + std::to_string(count);
+        LOGD("%s", result.c_str());
+        
+        return env->NewStringUTF(result.c_str());
+        
+    } catch (cv::Exception &e) {
+        LOGE("OpenCV Error: %s", e.what());
+        return env->NewStringUTF("OpenCV test failed!");
+    }
+}
+
+} // extern "C"

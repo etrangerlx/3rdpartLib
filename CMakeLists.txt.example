@@ -1,0 +1,104 @@
+# Example CMakeLists.txt for Android App with OpenCV
+# Place this file in your Android project's app/src/main/cpp/ directory
+#
+# This configuration uses:
+# - Static libraries (.a) for native C++ code (libopencv_core.a, libopencv_imgproc.a)
+# - Shared library (.so) for Java layer (libopencv_java.so)
+
+cmake_minimum_required(VERSION 3.10.2)
+
+project("opencv_android_app")
+
+# Set C++ standard
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# ==================== OpenCV Configuration ====================
+# Set OpenCV SDK path based on target ABI
+# Option 1: Use environment variable
+# set(OpenCV_DIR $ENV{OPENCV_ANDROID_SDK}/${ANDROID_ABI})
+
+# Option 2: Use relative path (recommended)
+set(OpenCV_DIR ${CMAKE_SOURCE_DIR}/../jniLibs/opencv-android-sdk/${ANDROID_ABI}/sdk/native/jni)
+
+# Option 3: Use absolute path
+# set(OpenCV_DIR /home/leixian/workspace/3rdpartLib/opencv-android-sdk/${ANDROID_ABI}/sdk/native/jni)
+
+# Find OpenCV package
+find_package(OpenCV REQUIRED)
+
+if(OpenCV_FOUND)
+    message(STATUS "OpenCV library status:")
+    message(STATUS "    version: ${OpenCV_VERSION}")
+    message(STATUS "    libraries: ${OpenCV_LIBS}")
+    message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "OpenCV not found!")
+endif()
+
+# ==================== Include Directories ====================
+include_directories(${OpenCV_INCLUDE_DIRS})
+
+# ==================== Source Files ====================
+# Add your C++ source files here
+file(GLOB_RECURSE NATIVE_SRCS
+    ${CMAKE_SOURCE_DIR}/*.cpp
+    ${CMAKE_SOURCE_DIR}/*.c
+)
+
+# ==================== Build Native Library ====================
+# Create shared library
+add_library(
+    # Library name
+    native-lib
+    
+    # Library type (SHARED = .so)
+    SHARED
+    
+    # Source files
+    ${NATIVE_SRCS}
+)
+
+# ==================== Link Libraries ====================
+target_link_libraries(
+    native-lib
+    
+    # OpenCV libraries
+    ${OpenCV_LIBS}
+    
+    # Android system libraries
+    android
+    log
+    jnigraphics
+)
+
+# ==================== Compiler Options ====================
+# Enable ARM NEON optimization for ARM architectures
+if(${ANDROID_ABI} STREQUAL "armeabi-v7a")
+    target_compile_options(native-lib PRIVATE
+        -mfpu=neon
+        -mfloat-abi=softfp
+    )
+elseif(${ANDROID_ABI} STREQUAL "arm64-v8a")
+    # ARM64 has NEON by default
+    target_compile_options(native-lib PRIVATE
+        -O3
+    )
+endif()
+
+# ==================== Additional Configuration ====================
+# Strip symbols in release builds
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -s")
+endif()
+
+# Print build configuration
+message(STATUS "==================================================")
+message(STATUS "Build Configuration:")
+message(STATUS "  Project: ${PROJECT_NAME}")
+message(STATUS "  ABI: ${ANDROID_ABI}")
+message(STATUS "  API Level: ${ANDROID_PLATFORM}")
+message(STATUS "  STL: ${ANDROID_STL}")
+message(STATUS "  Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "  OpenCV Version: ${OpenCV_VERSION}")
+message(STATUS "==================================================")
